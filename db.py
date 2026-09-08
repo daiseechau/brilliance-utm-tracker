@@ -25,7 +25,8 @@ SQLITE_DB = "speaker_links.db"
 
 
 def _pg_schema():
-    return """
+    return [
+        """
         CREATE TABLE IF NOT EXISTS speaker_links (
             id         SERIAL PRIMARY KEY,
             name       TEXT NOT NULL,
@@ -33,11 +34,32 @@ def _pg_schema():
             origin     TEXT NOT NULL DEFAULT 'new',
             created_at TEXT NOT NULL
         )
-    """
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS speaker_posts (
+            id         SERIAL PRIMARY KEY,
+            name       TEXT NOT NULL,
+            linkedin   TEXT NOT NULL DEFAULT '',
+            instagram  TEXT NOT NULL DEFAULT '',
+            photo      TEXT NOT NULL DEFAULT '',
+            status     TEXT NOT NULL DEFAULT 'pending',
+            note       TEXT NOT NULL DEFAULT '',
+            posts      TEXT NOT NULL DEFAULT '[]'
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS speaker_posts_meta (
+            id              INTEGER PRIMARY KEY,
+            last_checked    TEXT NOT NULL,
+            check_frequency TEXT NOT NULL
+        )
+        """,
+    ]
 
 
 def _sqlite_schema():
-    return """
+    return [
+        """
         CREATE TABLE IF NOT EXISTS speaker_links (
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             name        TEXT NOT NULL,
@@ -45,10 +67,31 @@ def _sqlite_schema():
             origin      TEXT NOT NULL DEFAULT 'new',
             created_at  TEXT NOT NULL
         )
-    """
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS speaker_posts (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            name        TEXT NOT NULL,
+            linkedin    TEXT NOT NULL DEFAULT '',
+            instagram   TEXT NOT NULL DEFAULT '',
+            photo       TEXT NOT NULL DEFAULT '',
+            status      TEXT NOT NULL DEFAULT 'pending',
+            note        TEXT NOT NULL DEFAULT '',
+            posts       TEXT NOT NULL DEFAULT '[]'
+        )
+        """,
+        """
+        CREATE TABLE IF NOT EXISTS speaker_posts_meta (
+            id              INTEGER PRIMARY KEY,
+            last_checked    TEXT NOT NULL,
+            check_frequency TEXT NOT NULL
+        )
+        """,
+    ]
 
 
 def db_schema():
+    """Returns a list of CREATE TABLE statements to run individually."""
     return _pg_schema() if USE_PG else _sqlite_schema()
 
 

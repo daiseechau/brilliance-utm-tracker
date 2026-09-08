@@ -123,6 +123,48 @@
   .edit-preview{font-size:11.5px; color:var(--muted); display:block; margin-top:4px; white-space:normal; word-break:break-all;}
   .empty-row td{text-align:center; color:var(--muted); padding:28px; font-size:13.5px;}
 
+  .post-summary{
+    background:linear-gradient(135deg, var(--primary-25), rgba(255,138,61,.10));
+    border:1px solid var(--line); border-radius:var(--radius); padding:18px 22px;
+    display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:18px;
+  }
+  .post-summary .num{font-size:34px; font-weight:800; color:var(--heading); font-variant-numeric:tabular-nums;}
+  .post-summary .label{font-size:14px; color:var(--body);}
+  .post-summary .sub{font-size:12.5px; color:var(--muted); margin-left:auto;}
+
+  .post-controls{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:center;}
+  .post-controls .search{max-width:280px;}
+  select.status-select{
+    font:inherit; font-size:13.5px; color:var(--heading); background:var(--page);
+    border:1px solid var(--line); border-radius:10px; padding:10px 12px; outline:none; cursor:pointer;
+  }
+  select.status-select:focus{border-color:var(--primary);}
+
+  .speaker-grid{display:flex; flex-direction:column; gap:10px;}
+  .speaker-card{background:var(--divider); border:1px solid var(--line); border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:10px;}
+  .speaker-top{display:flex; align-items:center; gap:12px;}
+  .avatar{width:38px; height:38px; border-radius:50%; flex-shrink:0; background:var(--grad); color:#fff; font-weight:700; font-size:12.5px; display:flex; align-items:center; justify-content:center; letter-spacing:0;}
+  .speaker-id{flex:1; min-width:0;}
+  .speaker-name-row{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .speaker-post-name{font-weight:700; color:var(--heading); font-size:14.5px;}
+  .platform-links{display:flex; gap:6px;}
+  .platform-links a{display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:7px; background:var(--page); border:1px solid var(--line); color:var(--muted);}
+  .platform-links a:hover{color:var(--pink); border-color:var(--pink);}
+  .status-badge{margin-left:auto; padding:3px 10px; border-radius:999px; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap;}
+  .status-badge.confirmed{background:var(--green-bg); color:var(--green);}
+  .status-badge.pending{background:var(--slate-bg); color:var(--slate);}
+  .status-badge.review{background:rgba(255,138,61,.15); color:var(--orange);}
+  .post-list{display:flex; flex-direction:column; gap:6px;}
+  .post-item{background:var(--page); border-left:3px solid var(--pink); border-radius:8px; padding:8px 12px; font-size:12.5px; color:var(--body);}
+  .post-item.instagram{border-left-color:var(--orange);}
+  .post-type-tag{display:inline-block; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:2px 8px; border-radius:999px; background:rgba(255,138,61,.15); color:var(--orange); margin-right:8px;}
+  .post-snippet{color:var(--heading); font-style:italic;}
+  .post-meta-row{display:flex; align-items:center; gap:10px; margin-top:4px;}
+  .post-link{font-size:11.5px; color:var(--pink); text-decoration:none; font-weight:600;}
+  .post-link:hover{text-decoration:underline;}
+  .post-date{font-size:11px; color:var(--muted);}
+  .no-post-msg{font-size:12.5px; color:var(--muted); font-style:italic; padding:6px 2px;}
+
   footer{font-size:12px; color:var(--muted); line-height:1.6; text-align:center; padding-top:8px;}
   footer b{color:var(--body);}
 </style>
@@ -139,6 +181,7 @@
   <div class="tabs">
     <button class="tab-btn active" data-tab="generator">UTM Link Generator</button>
     <button class="tab-btn" data-tab="tracked">Tracked Speakers<span class="count" id="tabCount">–</span></button>
+    <button class="tab-btn" data-tab="posts">Speaker Posts<span class="count" id="postsCount">–</span></button>
   </div>
 
   <div class="panel" id="panel-generator">
@@ -178,6 +221,25 @@
           <tbody id="tableBody"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody>
         </table>
       </div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel-posts" hidden>
+    <div class="card">
+      <div class="post-summary" id="postsSummary"></div>
+      <div class="post-controls">
+        <div class="search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="text" id="postsSearch" placeholder="Filter by name…">
+        </div>
+        <select class="status-select" id="postsStatusFilter">
+          <option value="all">All statuses</option>
+          <option value="confirmed">Confirmed post found</option>
+          <option value="review">Needs review</option>
+          <option value="pending">No post found yet</option>
+        </select>
+      </div>
+      <div class="speaker-grid" id="postsGrid">Loading…</div>
     </div>
   </div>
 
@@ -232,6 +294,7 @@
       btn.classList.add('active');
       document.getElementById('panel-generator').hidden = btn.dataset.tab !== 'generator';
       document.getElementById('panel-tracked').hidden = btn.dataset.tab !== 'tracked';
+      document.getElementById('panel-posts').hidden = btn.dataset.tab !== 'posts';
     });
   });
 
@@ -464,6 +527,97 @@
   });
 
   loadLinks();
+
+  // --- speaker posts ---
+  const LINKEDIN_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>';
+  const INSTAGRAM_ICON = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>';
+
+  let speakerPosts = [];
+  let postsMeta = { lastChecked: '', checkFrequency: '' };
+
+  function postInitials(name){
+    return name.split(' ').map(w => w.replace(/[^A-Za-z]/g, '')).filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  }
+  function postLinkedinUrl(s){ return s.linkedin ? `https://${s.linkedin}` : null; }
+  function postInstagramUrl(s){ return s.instagram ? `https://instagram.com/${s.instagram.replace(/^@/, '')}` : null; }
+
+  async function loadSpeakerPosts(){
+    const grid = document.getElementById('postsGrid');
+    try {
+      const res = await fetch('/api/speaker-posts');
+      if (!res.ok) throw new Error('bad status');
+      const data = await res.json();
+      speakerPosts = data.speakers;
+      postsMeta = data.meta;
+    } catch (e) {
+      grid.innerHTML = '<div class="no-post-msg">Could not load speaker posts. Refresh to try again.</div>';
+      return;
+    }
+    document.getElementById('postsCount').textContent = speakerPosts.length;
+    renderPostsSummary();
+    applyPostsFilters();
+  }
+
+  function renderPostsSummary(){
+    const el = document.getElementById('postsSummary');
+    const total = speakerPosts.length;
+    const confirmed = speakerPosts.filter(s => s.status === 'confirmed').length;
+    const pending = speakerPosts.filter(s => s.status === 'pending').length;
+    const totalPosts = speakerPosts.reduce((sum, s) => sum + s.posts.length, 0);
+    el.innerHTML = `
+      <span class="num">${totalPosts}</span>
+      <span class="label">Brilliance26 post${totalPosts === 1 ? '' : 's'} found across ${total} speakers</span>
+      <span class="sub">${confirmed} confirmed &middot; ${pending} pending &middot; checked ${escapeHtml(postsMeta.lastChecked || '—')}</span>`;
+  }
+
+  function renderPostsGrid(data){
+    const grid = document.getElementById('postsGrid');
+    if (!data.length) { grid.innerHTML = '<div class="no-post-msg">No speakers match this filter.</div>'; return; }
+    grid.innerHTML = data.map(s => {
+      const li = postLinkedinUrl(s), ig = postInstagramUrl(s);
+      const badgeClass = s.status === 'confirmed' ? 'confirmed' : s.status === 'review' ? 'review' : 'pending';
+      const badgeText = s.status === 'confirmed' ? 'Confirmed' : s.status === 'review' ? 'Review' : 'Pending';
+      const postsHtml = s.posts.length
+        ? s.posts.map(p => `
+          <div class="post-item ${p.platform}">
+            ${p.type ? `<span class="post-type-tag">${escapeHtml(p.type)}</span>` : ''}
+            <span class="post-snippet">"${escapeHtml(p.snippet)}"</span>
+            <div class="post-meta-row"><a class="post-link" href="${escapeHtml(p.url)}" target="_blank" rel="noopener">View post &rarr;</a><span class="post-date">${escapeHtml(p.date)}</span></div>
+          </div>`).join('')
+        : (s.note ? `<div class="no-post-msg">${escapeHtml(s.note)}</div>` : '<div class="no-post-msg">No matching post found yet.</div>');
+
+      return `
+        <div class="speaker-card">
+          <div class="speaker-top">
+            <div class="avatar">${postInitials(s.name)}</div>
+            <div class="speaker-id">
+              <div class="speaker-name-row">
+                <span class="speaker-post-name">${escapeHtml(s.name)}</span>
+                <div class="platform-links">
+                  ${li ? `<a href="${li}" target="_blank" rel="noopener" aria-label="${escapeHtml(s.name)} on LinkedIn">${LINKEDIN_ICON}</a>` : ''}
+                  ${ig ? `<a href="${ig}" target="_blank" rel="noopener" aria-label="${escapeHtml(s.name)} on Instagram">${INSTAGRAM_ICON}</a>` : ''}
+                </div>
+              </div>
+            </div>
+            <span class="status-badge ${badgeClass}">${badgeText}</span>
+          </div>
+          <div class="post-list">${postsHtml}</div>
+        </div>`;
+    }).join('');
+  }
+
+  function applyPostsFilters(){
+    const q = (document.getElementById('postsSearch').value || '').trim().toLowerCase();
+    const status = document.getElementById('postsStatusFilter').value;
+    let data = q ? speakerPosts.filter(s => s.name.toLowerCase().includes(q)) : speakerPosts;
+    if (status !== 'all') data = data.filter(s => s.status === status);
+    renderPostsGrid(data);
+  }
+
+  document.getElementById('postsSearch').addEventListener('input', applyPostsFilters);
+  document.getElementById('postsStatusFilter').addEventListener('change', applyPostsFilters);
+
+  loadSpeakerPosts();
 })();
 </script>
 </body>
