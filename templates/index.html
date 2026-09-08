@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Brilliance UTM Generator</title>
+<title>Brilliance Speaker Tracking</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
   /* Brilliance26 brand: near-black ground, magenta -> pink -> orange gemstone gradient */
@@ -110,9 +110,17 @@
   .pill{display:inline-flex; align-items:center; padding:3px 9px; border-radius:999px; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap;}
   .pill-seed{background:var(--slate-bg); color:var(--slate);}
   .pill-new{background:var(--green-bg); color:var(--green);}
+  .row-actions{display:flex; gap:6px; flex-wrap:nowrap;}
   .copy-btn{background:none; border:1px solid var(--line); border-radius:8px; padding:5px 10px; font-size:12px; font-weight:600; color:var(--body); white-space:nowrap; cursor:pointer; font-family:inherit;}
   .copy-btn:hover{background:var(--divider);}
   .copy-btn.done{color:var(--green); border-color:var(--green);}
+  .icon-btn{background:none; border:1px solid var(--line); border-radius:8px; padding:5px 9px; font-size:12px; font-weight:600; white-space:nowrap; cursor:pointer; font-family:inherit; color:var(--body);}
+  .icon-btn:hover{background:var(--divider);}
+  .icon-btn.save{color:var(--pink); border-color:var(--pink);}
+  .icon-btn.delete{color:var(--red); border-color:var(--red);}
+  .icon-btn.delete:hover{background:var(--red-bg);}
+  .edit-name-input{width:100%; font:inherit; font-size:13.5px; font-weight:600; color:var(--heading); background:var(--page); border:1px solid var(--primary); border-radius:8px; padding:6px 9px; outline:none;}
+  .edit-preview{font-size:11.5px; color:var(--muted); display:block; margin-top:4px; white-space:normal; word-break:break-all;}
   .empty-row td{text-align:center; color:var(--muted); padding:28px; font-size:13.5px;}
 
   footer{font-size:12px; color:var(--muted); line-height:1.6; text-align:center; padding-top:8px;}
@@ -124,12 +132,12 @@
 
   <div>
     <span class="eyebrow">Brilliance26 · Speaker Outreach</span>
-    <h1>Speaker Link <span class="grad">Generator</span></h1>
+    <h1><span class="grad">Brilliance</span> Speaker Tracking</h1>
     <p class="sub">Type a speaker's name, get a correctly-formatted outreach link back. Every link generated here is saved centrally — nothing to hand off, nothing to lose track of.</p>
   </div>
 
   <div class="tabs">
-    <button class="tab-btn active" data-tab="generator">Generator</button>
+    <button class="tab-btn active" data-tab="generator">UTM Link Generator</button>
     <button class="tab-btn" data-tab="tracked">Tracked Speakers<span class="count" id="tabCount">–</span></button>
   </div>
 
@@ -166,7 +174,7 @@
       </div>
       <div class="table-scroll">
         <table>
-          <thead><tr><th style="width:34px">#</th><th>Speaker</th><th>Link</th><th style="width:64px">Origin</th><th style="width:110px"></th></tr></thead>
+          <thead><tr><th style="width:34px">#</th><th>Speaker</th><th>Link</th><th style="width:64px">Origin</th><th style="width:190px"></th></tr></thead>
           <tbody id="tableBody"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody>
         </table>
       </div>
@@ -183,6 +191,7 @@
 <script>
 (function(){
   let links = [];
+  let editingId = null;
 
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -255,25 +264,128 @@
     tbody.innerHTML = visible.map((r, i) => {
       const pillClass = r.origin === 'new' ? 'pill-new' : 'pill-seed';
       const pillLabel = r.origin === 'new' ? 'New' : 'Seed';
-      return `<tr>
+
+      if (r.id === editingId) {
+        const previewUrl = buildUrl(nameToToken(r.name));
+        return `<tr data-row="${r.id}">
+          <td class="mono" style="color:var(--muted)">${i + 1}</td>
+          <td class="name">
+            <input type="text" class="edit-name-input" data-edit-id="${r.id}" value="${escapeHtml(r.name)}" autocomplete="off">
+            <span class="edit-preview mono" data-preview-id="${r.id}">${escapeHtml(previewUrl)}</span>
+          </td>
+          <td class="link"></td>
+          <td><span class="pill ${pillClass}">${pillLabel}</span></td>
+          <td><div class="row-actions">
+            <button class="icon-btn save" data-save-id="${r.id}">Save</button>
+            <button class="icon-btn" data-cancel-id="${r.id}">Cancel</button>
+          </div></td>
+        </tr>`;
+      }
+
+      return `<tr data-row="${r.id}">
         <td class="mono" style="color:var(--muted)">${i + 1}</td>
         <td class="name">${escapeHtml(r.name)}</td>
         <td class="link"><span class="link-text mono" title="${escapeHtml(r.url)}">${escapeHtml(r.url)}</span></td>
         <td><span class="pill ${pillClass}">${pillLabel}</span></td>
-        <td><button class="copy-btn" data-copy="${escapeHtml(r.url)}">Copy link</button></td>
+        <td><div class="row-actions">
+          <button class="copy-btn" data-copy="${escapeHtml(r.url)}">Copy link</button>
+          <button class="icon-btn" data-edit-btn="${r.id}">Edit</button>
+          <button class="icon-btn delete" data-delete-id="${r.id}">Delete</button>
+        </div></td>
       </tr>`;
     }).join('');
+
+    const firstInput = tbody.querySelector('.edit-name-input');
+    if (firstInput) { firstInput.focus(); firstInput.select(); }
   }
 
-  document.getElementById('tableBody').addEventListener('click', (e) => {
-    const btn = e.target.closest('.copy-btn');
-    if (!btn) return;
-    copyText(btn.getAttribute('data-copy')).then(() => {
-      const original = btn.textContent;
-      btn.textContent = 'Copied ✓';
-      btn.classList.add('done');
-      setTimeout(() => { btn.textContent = original; btn.classList.remove('done'); }, 1600);
-    });
+  function buildUrl(token){
+    return `https://web.cvent.com/event/a0662d72-4021-4faa-8fd4-6e7f0942196a/summary?utm_source=OUT&utm_medium=speaker&utm_campaign=BD_2026_Q3_OUT:Brilliance_Outreach_${token}&utm_content=Brilliance`;
+  }
+
+  const tableBody = document.getElementById('tableBody');
+
+  tableBody.addEventListener('input', (e) => {
+    if (!e.target.matches('.edit-name-input')) return;
+    const id = e.target.getAttribute('data-edit-id');
+    const preview = tableBody.querySelector(`[data-preview-id="${id}"]`);
+    if (preview) preview.textContent = buildUrl(nameToToken(e.target.value));
+  });
+
+  tableBody.addEventListener('keydown', (e) => {
+    if (!e.target.matches('.edit-name-input')) return;
+    if (e.key === 'Enter') { e.preventDefault(); tableBody.querySelector(`[data-save-id="${editingId}"]`)?.click(); }
+    if (e.key === 'Escape') { editingId = null; renderTable(document.getElementById('searchInput').value); }
+  });
+
+  tableBody.addEventListener('click', async (e) => {
+    const copyBtn = e.target.closest('.copy-btn');
+    if (copyBtn) {
+      copyText(copyBtn.getAttribute('data-copy')).then(() => {
+        const original = copyBtn.textContent;
+        copyBtn.textContent = 'Copied ✓';
+        copyBtn.classList.add('done');
+        setTimeout(() => { copyBtn.textContent = original; copyBtn.classList.remove('done'); }, 1600);
+      });
+      return;
+    }
+
+    const editBtn = e.target.closest('[data-edit-btn]');
+    if (editBtn) {
+      editingId = Number(editBtn.getAttribute('data-edit-btn'));
+      renderTable(document.getElementById('searchInput').value);
+      return;
+    }
+
+    const cancelBtn = e.target.closest('[data-cancel-id]');
+    if (cancelBtn) {
+      editingId = null;
+      renderTable(document.getElementById('searchInput').value);
+      return;
+    }
+
+    const saveBtn = e.target.closest('[data-save-id]');
+    if (saveBtn) {
+      const id = Number(saveBtn.getAttribute('data-save-id'));
+      const input = tableBody.querySelector(`[data-edit-id="${id}"]`);
+      const name = input.value.trim();
+      if (!name) return;
+      saveBtn.disabled = true;
+      try {
+        const res = await fetch(`/api/links/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        if (!res.ok) throw new Error('Could not save changes');
+        const updated = await res.json();
+        links = links.map(r => r.id === id ? updated : r);
+        editingId = null;
+        renderTable(document.getElementById('searchInput').value);
+      } catch (err) {
+        saveBtn.disabled = false;
+        alert(err.message);
+      }
+      return;
+    }
+
+    const deleteBtn = e.target.closest('[data-delete-id]');
+    if (deleteBtn) {
+      const id = Number(deleteBtn.getAttribute('data-delete-id'));
+      const row = links.find(r => r.id === id);
+      if (!row || !confirm(`Delete the link for "${row.name}"? This can't be undone.`)) return;
+      deleteBtn.disabled = true;
+      try {
+        const res = await fetch(`/api/links/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Could not delete this link');
+        links = links.filter(r => r.id !== id);
+        document.getElementById('tabCount').textContent = links.length;
+        renderTable(document.getElementById('searchInput').value);
+      } catch (err) {
+        deleteBtn.disabled = false;
+        alert(err.message);
+      }
+    }
   });
 
   document.getElementById('searchInput').addEventListener('input', e => renderTable(e.target.value));
@@ -307,7 +419,7 @@
       return;
     }
     preview.classList.remove('placeholder');
-    const full = `https://web.cvent.com/event/a0662d72-4021-4faa-8fd4-6e7f0942196a/summary?utm_source=OUT&utm_medium=speaker&utm_campaign=BD_2026_Q3_OUT:Brilliance_Outreach_${token}&utm_content=Brilliance`;
+    const full = buildUrl(token);
     preview.innerHTML = full.replace(`Brilliance_Outreach_${token}`, `Brilliance_Outreach_<b>${escapeHtml(token)}</b>`);
     addBtn.disabled = false;
 

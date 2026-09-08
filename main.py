@@ -76,6 +76,10 @@ class NewSpeaker(BaseModel):
     name: str
 
 
+class UpdateSpeaker(BaseModel):
+    name: str
+
+
 def serialize(row) -> dict:
     token = row["token"]
     return {
@@ -120,3 +124,36 @@ def create_link(payload: NewSpeaker):
         cur = conn.execute("SELECT * FROM speaker_links WHERE id = ?", (new_id,))
         row = cur.fetchone()
         return serialize(row)
+
+
+@app.patch("/api/links/{link_id}")
+def update_link(link_id: int, payload: UpdateSpeaker):
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    token = name_to_token(name)
+    if not token:
+        raise HTTPException(status_code=400, detail="Could not generate a link from that name")
+
+    with get_db() as conn:
+        cur = conn.execute("SELECT * FROM speaker_links WHERE id = ?", (link_id,))
+        if cur.fetchone() is None:
+            raise HTTPException(status_code=404, detail="Speaker not found")
+        conn.execute(
+            "UPDATE speaker_links SET name = ?, token = ? WHERE id = ?",
+            (name, token, link_id),
+        )
+        conn.commit()
+        cur = conn.execute("SELECT * FROM speaker_links WHERE id = ?", (link_id,))
+        return serialize(cur.fetchone())
+
+
+@app.delete("/api/links/{link_id}")
+def delete_link(link_id: int):
+    with get_db() as conn:
+        cur = conn.execute("SELECT * FROM speaker_links WHERE id = ?", (link_id,))
+        if cur.fetchone() is None:
+            raise HTTPException(status_code=404, detail="Speaker not found")
+        conn.execute("DELETE FROM speaker_links WHERE id = ?", (link_id,))
+        conn.commit()
+        return {"ok": True}
