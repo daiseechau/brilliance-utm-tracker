@@ -207,6 +207,12 @@ def create_link(payload: NewSpeaker):
             "INSERT INTO speaker_links (name, token, origin, created_at) VALUES (?, ?, ?, ?)",
             (name, token, "new", now),
         )
+        cur = conn.execute("SELECT COUNT(*) AS c FROM speaker_posts WHERE name = ?", (name,))
+        if not cur.fetchone()["c"]:
+            conn.execute(
+                "INSERT INTO speaker_posts (name, linkedin, instagram, photo, status, note, posts) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (name, "", "", "", "pending", "", "[]"),
+            )
         conn.commit()
         cur = conn.execute("SELECT * FROM speaker_links WHERE id = ?", (new_id,))
         row = cur.fetchone()
@@ -224,12 +230,16 @@ def update_link(link_id: int, payload: UpdateSpeaker):
 
     with get_db() as conn:
         cur = conn.execute("SELECT * FROM speaker_links WHERE id = ?", (link_id,))
-        if cur.fetchone() is None:
+        old_row = cur.fetchone()
+        if old_row is None:
             raise HTTPException(status_code=404, detail="Speaker not found")
+        old_name = old_row["name"]
         conn.execute(
             "UPDATE speaker_links SET name = ?, token = ? WHERE id = ?",
             (name, token, link_id),
         )
+        if old_name != name:
+            conn.execute("UPDATE speaker_posts SET name = ? WHERE name = ?", (name, old_name))
         conn.commit()
         cur = conn.execute("SELECT * FROM speaker_links WHERE id = ?", (link_id,))
         return serialize(cur.fetchone())
